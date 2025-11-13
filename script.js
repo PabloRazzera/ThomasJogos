@@ -38,7 +38,7 @@ button {
   font-size: 20px;
   padding: 15px;
   border: none;
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
   background-color: #444;
   color: white;
@@ -52,3 +52,4 @@ button:hover {
 button:active {
   transform: scale(0.95);
 }
+

@@ -1,40 +1,245 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Calculadora</title>
-  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Reset simples */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg,#0f172a,#0ea5a4);
+      font-family: "Segoe UI", Roboto, Arial, sans-serif;
+      padding: 20px;
+    }
+
+    .calculator {
+      width: 320px;
+      background: linear-gradient(180deg,#111827,#0b1220);
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 10px 30px rgba(2,6,23,0.6);
+      color: #e6eef3;
+    }
+
+    .display {
+      width: 100%;
+      height: 56px;
+      border-radius: 10px;
+      border: none;
+      padding: 10px 14px;
+      font-size: 22px;
+      text-align: right;
+      background: rgba(255,255,255,0.03);
+      color: #e6eef3;
+      margin-bottom: 12px;
+    }
+
+    .buttons {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    button.btn {
+      padding: 14px;
+      font-size: 18px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      user-select: none;
+      background: rgba(255,255,255,0.03);
+      color: #e6eef3;
+      transition: transform .06s ease, background .12s;
+    }
+
+    button.btn:hover { transform: translateY(-2px); background: rgba(255,255,255,0.05); }
+    button.btn:active { transform: translateY(0); }
+
+    button.op { background: linear-gradient(180deg,#ff7a18,#ffb347); color: #111; font-weight: 600; }
+    button.fn { background: linear-gradient(180deg,#374151,#1f2937); }
+    button.equal { grid-column: 4 / 5; background: linear-gradient(180deg,#06b6d4,#0891b2); font-weight: 700; }
+
+    /* wide button (0) */
+    .zero { grid-column: 1 / 3; }
+
+    /* small responsive */
+    @media (max-width: 360px) {
+      .calculator { width: 95%; }
+      .display { height: 48px; font-size: 20px; }
+      button.btn { padding: 12px; font-size: 16px; }
+    }
+  </style>
 </head>
 <body>
-  <div class="calculator">
-    <input type="text" id="display" disabled>
+  <div class="calculator" role="application" aria-label="Calculadora">
+    <input id="display" class="display" readonly aria-label="Tela da calculadora" value="" />
+
     <div class="buttons">
-      <button onclick="clearDisplay()">C</button>
-      <button onclick="deleteLast()">⌫</button>
-      <button onclick="appendToDisplay('/')">÷</button>
-      <button onclick="appendToDisplay('*')">×</button>
+      <button class="btn fn" data-action="clear">C</button>
+      <button class="btn fn" data-action="back">⌫</button>
+      <button class="btn fn" data-action="percent">%</button>
+      <button class="btn op" data-value="/">÷</button>
 
-      <button onclick="appendToDisplay('7')">7</button>
-      <button onclick="appendToDisplay('8')">8</button>
-      <button onclick="appendToDisplay('9')">9</button>
-      <button onclick="appendToDisplay('-')">−</button>
+      <button class="btn" data-value="7">7</button>
+      <button class="btn" data-value="8">8</button>
+      <button class="btn" data-value="9">9</button>
+      <button class="btn op" data-value="*">×</button>
 
-      <button onclick="appendToDisplay('4')">4</button>
-      <button onclick="appendToDisplay('5')">5</button>
-      <button onclick="appendToDisplay('6')">6</button>
-      <button onclick="appendToDisplay('+')">+</button>
+      <button class="btn" data-value="4">4</button>
+      <button class="btn" data-value="5">5</button>
+      <button class="btn" data-value="6">6</button>
+      <button class="btn op" data-value="-">−</button>
 
-      <button onclick="appendToDisplay('1')">1</button>
-      <button onclick="appendToDisplay('2')">2</button>
-      <button onclick="appendToDisplay('3')">3</button>
-      <button onclick="calculateResult()">=</button>
+      <button class="btn" data-value="1">1</button>
+      <button class="btn" data-value="2">2</button>
+      <button class="btn" data-value="3">3</button>
+      <button class="btn op" data-value="+">+</button>
 
-      <button onclick="appendToDisplay('0')">0</button>
-      <button onclick="appendToDisplay('.')">.</button>
+      <button class="btn zero" data-value="0">0</button>
+      <button class="btn" data-value=".">.</button>
+      <button class="btn equal" data-action="calculate">=</button>
     </div>
   </div>
 
-  <script src="script.js"></script>
+  <script>
+    (function () {
+      const display = document.getElementById('display');
+
+      // Utility: insere valor no display
+      function append(v) {
+        // se estiver "Erro", substitui com novo input
+        if (display.value === 'Erro') display.value = '';
+
+        // evitar dois pontos seguidos
+        if (v === '.' && getLastNumber().includes('.')) return;
+
+        // evitar operadores duplos (ex: ++, +*)
+        if (isOperator(v)) {
+          if (!display.value) return; // não começar com operador
+          if (isOperator(lastChar())) {
+            // substitui operador anterior por novo
+            display.value = display.value.slice(0, -1) + v;
+            return;
+          }
+        }
+
+        display.value += v;
+      }
+
+      function clearAll() { display.value = ''; }
+      function backspace() {
+        display.value = display.value.slice(0, -1);
+      }
+
+      function isOperator(ch) {
+        return ['+', '-', '*', '/'].includes(ch);
+      }
+
+      function lastChar() {
+        return display.value.slice(-1);
+      }
+
+      function getLastNumber() {
+        const match = display.value.match(/([0-9]*\.?[0-9]*)$/);
+        return match ? match[0] : '';
+      }
+
+      function percentage() {
+        // transforma "200+10%" -> calcula percentual do número anterior
+        try {
+          if (!display.value) return;
+          // se tiver operador no final, remove
+          if (isOperator(lastChar())) return;
+          // simplesmente divide por 100
+          display.value = String(evalSafe(display.value + '/100'));
+        } catch {
+          display.value = 'Erro';
+        }
+      }
+
+      function calculate() {
+        try {
+          if (!display.value) return;
+          // não terminar com operador
+          if (isOperator(lastChar())) display.value = display.value.slice(0, -1);
+
+          // Avaliar expressão de forma controlada:
+          // já garantimos operadores básicos e pontos. Substituições seguras
+          const safeExpression = display.value.replace(/×/g, '*').replace(/÷/g, '/');
+
+          // Small safety: bloquear caracteres inválidos
+          if (/[^0-9+\-*/(). ]/.test(safeExpression)) {
+            display.value = 'Erro';
+            return;
+          }
+
+          const result = evalSafe(safeExpression);
+          display.value = String(result);
+        } catch (e) {
+          display.value = 'Erro';
+        }
+      }
+
+      // Função segura para avaliar expressões aritméticas simples
+      function evalSafe(expr) {
+        // usamos Function em vez de eval direto para mesma finalidade, simples e rápida.
+        // atenção: para calculadora simples isso é aceitável; não usar com input de usuários para execução genérica.
+        /* eslint no-new-func: "off" */
+        return Function('"use strict"; return (' + expr + ')')();
+      }
+
+      // Eventos dos botões
+      document.querySelectorAll('.btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const v = btn.getAttribute('data-value');
+          const action = btn.getAttribute('data-action');
+
+          if (action === 'clear') return clearAll();
+          if (action === 'back') return backspace();
+          if (action === 'percent') return percentage();
+          if (action === 'calculate') return calculate();
+
+          if (v) append(v);
+        });
+      });
+
+      // Suporte ao teclado
+      window.addEventListener('keydown', (e) => {
+        const k = e.key;
+        if ((k >= '0' && k <= '9') || k === '.') {
+          append(k);
+          e.preventDefault();
+          return;
+        }
+
+        if (k === '+' || k === '-' || k === '*' || k === '/') {
+          append(k);
+          e.preventDefault();
+          return;
+        }
+
+        if (k === 'Enter') { calculate(); e.preventDefault(); return; }
+        if (k === 'Backspace') { backspace(); e.preventDefault(); return; }
+        if (k === 'Escape') { clearAll(); e.preventDefault(); return; }
+      });
+
+      // evitar copiar colagem estranha no input (opcional)
+      display.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const txt = (e.clipboardData || window.clipboardData).getData('text');
+        // aceita só números e operadores
+        if (/^[0-9+\-*/().\s]+$/.test(txt)) {
+          display.value += txt.trim();
+        }
+      });
+
+    })();
+  </script>
 </body>
 </html>
